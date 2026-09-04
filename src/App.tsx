@@ -1,8 +1,10 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-export default function App() {
-  return <div></div>;
+function App() {
+  return (
+    <iframe 
+      src="/board.html" 
+      style={{ width: '100%', height: '100vh', border: 'none' }} 
+      title="Pattern Board"
+    />
+  );
 }
+export default App;
