@@ -1,0 +1,6 @@
+{
+  "name": "لوحة مخططات الكروشيه والخياطة",
+  "description": "لوحة رسم وتصميم مخططات الكروشيه والخياطة مع غلاف أندرويد Capacitor لبناء تطبيق APK للهاتف",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
