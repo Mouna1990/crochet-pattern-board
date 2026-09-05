@@ -1,94 +1,29 @@
-// Capacitor Native Bridge
-(function() {
-  'use strict';
-  
-  function waitForCapacitor(cb, retries = 50) {
-    if (typeof Capacitor !== 'undefined' && Capacitor.Plugins) {
-      cb();
-      return;
-    }
-    if (retries > 0) setTimeout(() => waitForCapacitor(cb, retries - 1), 100);
-  }
-
-  waitForCapacitor(function() {
-    console.log('[Bridge] Capacitor ready');
-    const Plugins = Capacitor.Plugins;
-    const Filesystem = Plugins.Filesystem;
-    const Share = Plugins.Share;
-
-    // === اعتراض روابط التنزيل ===
-    const origCreateElement = document.createElement;
-    document.createElement = function(tag) {
-      const el = origCreateElement.call(document, tag);
-      if (tag.toLowerCase() === 'a') {
-        let downloadName = '';
-        let hrefUrl = '';
-        
-        Object.defineProperty(el, 'download', {
-          set: function(v) { downloadName = v; },
-          get: function() { return downloadName; }
-        });
-        
-        const origClick = el.click;
-        el.click = function() {
-          if (downloadName && hrefUrl && (hrefUrl.startsWith('data:') || hrefUrl.startsWith('blob:'))) {
-            exportFile(hrefUrl, downloadName);
-            return;
-          }
-          return origClick.call(el);
-        };
-        
-        el.setAttribute = function(name, value) {
-          if (name === 'href') hrefUrl = value;
-          return Element.prototype.setAttribute.call(el, name, value);
-        };
+(function(){
+  function wait(cb,r){if(typeof Capacitor!=='undefined'&&Capacitor.Plugins){cb();return;}if(r>0)setTimeout(function(){wait(cb,r-1)},100);}
+  wait(function(){
+    var F=Capacitor.Plugins.Filesystem,S=Capacitor.Plugins.Share;
+    if(!F||!S)return;
+    var orig=document.createElement;
+    document.createElement=function(t){
+      var e=orig.call(document,t);
+      if(t.toLowerCase()==='a'){
+        var d='',h='';
+        Object.defineProperty(e,'download',{set:function(v){d=v;},get:function(){return d;}});
+        var oc=e.click;e.click=function(){if(d&&h&&(h.indexOf('data:')===0||h.indexOf('blob:')===0)){exportFile(h,d);return;}return oc.call(e);};
+        e.setAttribute=function(n,v){if(n==='href')h=v;return Element.prototype.setAttribute.call(e,n,v);};
       }
-      return el;
+      return e;
     };
-
-    function exportFile(dataUrl, filename) {
-      if (!Filesystem || !Share) {
-        alert('Export not available');
-        return;
-      }
-      
-      let base64 = '';
-      if (dataUrl.startsWith('data:')) {
-        const comma = dataUrl.indexOf(',');
-        base64 = dataUrl.substring(comma + 1);
-        if (!dataUrl.includes('base64')) base64 = btoa(base64);
-      } else {
-        fetch(dataUrl).then(r => r.blob()).then(blob => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const b64 = reader.result.split(',')[1];
-            saveAndShare(b64, filename);
-          };
-          reader.readAsDataURL(blob);
-        });
-        return;
-      }
-      saveAndShare(base64, filename);
+    function exportFile(u,n){
+      var b64='';
+      if(u.indexOf('data:')===0){var c=u.indexOf(',');b64=u.substring(c+1);if(u.indexOf('base64')<0)b64=btoa(b64);save(b64,n);}
+      else{fetch(u).then(function(r){return r.blob();}).then(function(b){var r=new FileReader();r.onloadend=function(){save(r.result.split(',')[1],n);};r.readAsDataURL(b);});}
     }
-
-    function saveAndShare(base64, filename) {
-      Filesystem.writeFile({
-        path: 'Download/' + filename,
-        data: base64,
-        directory: 'EXTERNAL_STORAGE',
-        recursive: true
-      }).then((result) => {
-        Share.share({
-          title: 'Pattern Board Export',
-          text: filename,
-          url: result.uri,
-          dialogTitle: 'Save or Share'
-        });
-      }).catch(err => {
-        alert('Save failed: ' + err.message);
-      });
+    function save(b64,name){
+      F.writeFile({path:'Download/'+name,data:b64,directory:'EXTERNAL_STORAGE',recursive:true}).then(function(r){
+        S.share({title:'Pattern Board',text:name,url:r.uri,dialogTitle:'Save or Share'});
+      }).catch(function(e){alert('Save failed: '+e.message);});
     }
-
     console.log('[Bridge] Ready');
-  });
+  },50);
 })();
