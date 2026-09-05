@@ -1,9 +1,13 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.crochet.patternboard',
-  appName: 'لوحة مخططات الكروشيه والخياطة',
-  webDir: 'dist'
+  appId: 'com.mouna1990.crochetpatternboard',
+  appName: 'Pattern Board',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+    cleartext: true
+  }
 };
 
 export default config;

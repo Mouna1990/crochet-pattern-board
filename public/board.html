@@ -11513,15 +11513,33 @@ class PatternBoard{
       }
     }
 
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download='marahel-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.'+ext;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},3000);
-    this.showToast('تم التصدير · '+ext.toUpperCase()+' · '+Math.round(blob.size/1024)+' ك.ب · أبقِ الشاشة مضاءة أثناء التصدير');
-  }
+        const filename='marahel-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.'+ext;
+
+    try{
+      if(window.parent && typeof window.parent.saveVideoToDevice==='function'){
+        const base64=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(String(reader.result).split(',')[1]);
+          reader.onerror=reject;
+          reader.readAsDataURL(blob);
+        });
+
+        await window.parent.saveVideoToDevice(filename,base64);
+        this.showToast('تم حفظ الفيديو · '+ext.toUpperCase());
+      }else{
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.href=url;
+        a.download=filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},3000);
+        this.showToast('تم التصدير · '+ext.toUpperCase());
+      }
+    }catch(err){
+      console.error('Video save failed',err);
+      this.showToast('تعذّر حفظ الفيديو في الهاتف');
+    }  }
 
   async convertWebmBlobToMp4(webmBlob){
     // Dynamic ESM imports — works on http/https; may fail on plain file://
@@ -14063,3 +14081,4 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 </body>
 </html>
+<script src="capacitor-bridge.js"></script>
