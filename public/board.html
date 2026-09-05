@@ -1310,7 +1310,7 @@
 async function nativeSaveOrDownload(blob, filename, shareTitle){
   try{
     if(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem){
-      const F=Capacitor.Plugins.Filesystem, S=Capacitor.Plugins.Share;
+      const F=Cap.Plugins.Filesystem, S=Cap.Plugins.Share;
       const b64=await new Promise((res,rej)=>{
         const rd=new FileReader();
         rd.onloadend=()=>res(rd.result.split(',')[1]);
