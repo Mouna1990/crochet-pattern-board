@@ -43,8 +43,16 @@
 
     function saveProjectJSON(jsonText){
       var name='project_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.json';
-      F.writeFile({path:'Download/PatternBoard/'+name,data:btoa(unescape(encodeURIComponent(jsonText))),directory:'EXTERNAL_STORAGE',recursive:true})
-        .then(function(r){alert('✅ تم الحفظ: '+name);})
+      var b64=btoa(unescape(encodeURIComponent(jsonText)));
+      F.writeFile({path:'Download/PatternBoard/'+name,data:b64,directory:'EXTERNAL_STORAGE',recursive:true})
+        .then(function(r){
+          if(S){
+            S.share({title:'Pattern Board',text:name,url:r.uri,dialogTitle:'احفظي أو شاركي ملف المشروع'})
+              .catch(function(e){console.log('Share cancelled',e);});
+          }else{
+            alert('✅ تم الحفظ: '+name);
+          }
+        })
         .catch(function(e){alert('❌ فشل الحفظ: '+e.message);});
     }
 
@@ -72,6 +80,6 @@
         });
     }
 
-    console.log('[Bridge] Capacitor bridge v4 active');
+    console.log('[Bridge] Capacitor bridge v5 active');
   },50);
 })();
