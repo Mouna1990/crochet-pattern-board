@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
 <title>لوحة مخططات الكروشيه والخياطة</title>
 <link rel="manifest" href="data:application/json,{"name":"لوحة مخططات الكروشيه","short_name":"مخططات","display":"standalone","start_url":".","background_color":"#f4efe1","theme_color":"#3f6357"}">
 <meta name="theme-color" content="#3f6357">
@@ -23,7 +23,6 @@
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
-  padding-top: max(24px, env(safe-area-inset-top, 0px));
     margin: 0; height: 100%; height: 100dvh; max-height: 100dvh;
     background: var(--panel); color: var(--ink);
     font-family: "Segoe UI", "Tahoma", "Geeza Pro", sans-serif;
@@ -957,7 +956,6 @@
 
   /* —— Blogspot / تضمين داخل صفحة: واجهة مضغوطة لا تقطع الأزرار —— */
   html.pb-embed, html.pb-embed body {
-  padding-top: max(24px, env(safe-area-inset-top, 0px));
     height: auto !important;
     max-height: none !important;
     overflow-x: hidden;
@@ -1308,6 +1306,36 @@
 </div>
 
 <script>
+// ===== حفظ أصلي موحّد (Capacitor إن وُجد، وإلا تنزيل متصفح عادي) =====
+async function nativeSaveOrDownload(blob, filename, shareTitle){
+  try{
+    if(window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.Filesystem){
+      const F=Capacitor.Plugins.Filesystem, S=Capacitor.Plugins.Share;
+      const b64=await new Promise((res,rej)=>{
+        const rd=new FileReader();
+        rd.onloadend=()=>res(rd.result.split(',')[1]);
+        rd.onerror=rej;
+        rd.readAsDataURL(blob);
+      });
+      const res=await F.writeFile({path:'Download/PatternBoard/'+filename,data:b64,directory:'EXTERNAL_STORAGE',recursive:true});
+      if(S){
+        try{ await S.share({title:shareTitle||filename,text:filename,url:res.uri,dialogTitle:'احفظي أو شاركي الملف'}); }
+        catch(e){ /* المستخدم ألغى نافذة المشاركة — الملف محفوظ فعلاً على الجهاز */ }
+      }
+      return true;
+    }
+  }catch(err){
+    console.error('native save failed',err);
+  }
+  // احتياطي: تنزيل متصفح عادي (يعمل في كروم/PWA)
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename; a.style.display='none';
+  document.body.appendChild(a);
+  try{ a.click(); }catch(_){}
+  setTimeout(()=>{ try{URL.revokeObjectURL(url); a.remove();}catch(_){} },2500);
+  return false;
+}
 let ART_W=4800,ART_H=3400; // أبعاد اللوحة قابلة للتغيير بالسحب من الحواف
 // أنواع النسيج الجاهزة — كلها تستخدم نفس مولّد الخيوط الحريرية (rasterWeaveFabric)
 // بمعامل واحد مختلف فقط (سُمك/تجمّع الحبل)، بدون أي التواء/انتفاخ إضافي حتى
@@ -11513,33 +11541,12 @@ class PatternBoard{
       }
     }
 
-        const filename='marahel-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.'+ext;
-
-    try{
-      if(window.parent && typeof window.parent.saveVideoToDevice==='function'){
-        const base64=await new Promise((resolve,reject)=>{
-          const reader=new FileReader();
-          reader.onload=()=>resolve(String(reader.result).split(',')[1]);
-          reader.onerror=reject;
-          reader.readAsDataURL(blob);
-        });
-
-        await window.parent.saveVideoToDevice(filename,base64);
-        this.showToast('تم حفظ الفيديو · '+ext.toUpperCase());
-      }else{
-        const url=URL.createObjectURL(blob);
-        const a=document.createElement('a');
-        a.href=url;
-        a.download=filename;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},3000);
-        this.showToast('تم التصدير · '+ext.toUpperCase());
-      }
-    }catch(err){
-      console.error('Video save failed',err);
-      this.showToast('تعذّر حفظ الفيديو في الهاتف');
-    }  }
+    const vFilename='marahel-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.'+ext;
+    const vSizeKb=Math.round(blob.size/1024);
+    nativeSaveOrDownload(blob,vFilename,'فيديو مراحل الكروشيه').then(()=>{
+      this.showToast('تم التصدير · '+ext.toUpperCase()+' · '+vSizeKb+' ك.ب');
+    });
+  }
 
   async convertWebmBlobToMp4(webmBlob){
     // Dynamic ESM imports — works on http/https; may fail on plain file://
@@ -12152,24 +12159,18 @@ class PatternBoard{
         finishDownload(blob);
       },'image/png',1);
     }else{
-      // Fallback
-      const a=document.createElement('a');
-      a.download=filename;
-      a.href=t.toDataURL('image/png');
-      a.click();
-      this.showToast('تم تنزيل الصورة — راجعي مجلد التنزيلات');
+      // Fallback: حوّلي dataURL لـ blob عشان تدخل نفس مسار الحفظ الأصلي
+      fetch(t.toDataURL('image/png')).then(r=>r.blob()).then(blob=>{
+        nativeSaveOrDownload(blob,filename,'مخطط الكروشيه').then(()=>{
+          this.showToast('تم تنزيل الصورة — راجعي مجلد التنزيلات');
+        });
+      });
     }
   }
   _downloadBlob(blob,filename){
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.download=filename;
-    a.href=url;
-    a.style.display='none';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},2500);
-    this.showToast('تم الحفظ: '+filename+' — راجعي التنزيلات أو المعرض');
+    nativeSaveOrDownload(blob,filename,'مخطط الكروشيه').then(()=>{
+      this.showToast('تم الحفظ: '+filename+' — راجعي التنزيلات أو المعرض');
+    });
   }
   showToast(m){const el=document.getElementById('toast');if(!el)return;el.textContent=m;el.classList.add('show');clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>el.classList.remove('show'),1600);}
   /**
@@ -12924,18 +12925,11 @@ class PatternBoard{
       catch(e){ this.showToast('المشروع كبير جداً للتصدير'); return; }
       const blob=new Blob([raw],{type:'application/json'});
       const filename=this.projectName+'_'+new Date().toISOString().slice(0,10)+'.json';
-      // تنزيل آمن لـ WebView
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url;
-      a.download=filename;
-      a.style.display='none';
-      document.body.appendChild(a);
-      try{ a.click(); }catch(_){}
-      setTimeout(()=>{ try{ URL.revokeObjectURL(url); a.remove(); }catch(_){} }, 2500);
       // احفظ أيضاً محلياً
       try{ localStorage.setItem('pb_project', raw); }catch(_){}
-      this.showToast('تم حفظ المشروع: '+this.projectName);
+      nativeSaveOrDownload(blob,filename,'مشروع Pattern Board').then(()=>{
+        this.showToast('تم حفظ المشروع: '+this.projectName+' — راجعي التنزيلات');
+      });
     }catch(e){
       console.error(e);
       this.showToast('تعذّر الحفظ في هذا التطبيق — جرّبي تصدير صورة PNG');
@@ -14081,4 +14075,3 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 </body>
 </html>
-<script src="capacitor-bridge.js"></script>
